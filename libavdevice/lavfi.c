@@ -130,8 +130,6 @@ av_cold static int lavfi_read_header(AVFormatContext *avctx)
     if (!pix_fmts)
         FAIL(AVERROR(ENOMEM));
 
-    avfilter_register_all();
-
     buffersink = avfilter_get_by_name("buffersink");
     abuffersink = avfilter_get_by_name("abuffersink");
 
@@ -304,9 +302,13 @@ av_cold static int lavfi_read_header(AVFormatContext *avctx)
 
     if (lavfi->dump_graph) {
         char *dump = avfilter_graph_dump(lavfi->graph, lavfi->dump_graph);
-        fputs(dump, stderr);
-        fflush(stderr);
-        av_free(dump);
+        if (dump != NULL) {
+            fputs(dump, stderr);
+            fflush(stderr);
+            av_free(dump);
+        } else {
+            FAIL(AVERROR(ENOMEM));
+        }
     }
 
     /* fill each stream with the information in the corresponding sink */
