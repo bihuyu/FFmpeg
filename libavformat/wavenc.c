@@ -361,8 +361,6 @@ static int wav_write_header(AVFormatContext *s)
         wav->data = ff_start_tag(pb, "data");
     }
 
-    avio_flush(pb);
-
     return 0;
 }
 
@@ -413,17 +411,13 @@ static int wav_write_trailer(AVFormatContext *s)
     int rf64 = 0;
     int ret = 0;
 
-    avio_flush(pb);
-
     if (s->pb->seekable & AVIO_SEEKABLE_NORMAL) {
         if (wav->write_peak != PEAK_ONLY && avio_tell(pb) - wav->data < UINT32_MAX) {
             ff_end_tag(pb, wav->data);
-            avio_flush(pb);
         }
 
         if (wav->write_peak && wav->peak_output) {
             ret = peak_write_chunk(s);
-            avio_flush(pb);
         }
 
         /* update file size */
@@ -435,17 +429,14 @@ static int wav_write_trailer(AVFormatContext *s)
             avio_seek(pb, 4, SEEK_SET);
             avio_wl32(pb, (uint32_t)(file_size - 8));
             avio_seek(pb, file_size, SEEK_SET);
-
-            avio_flush(pb);
         } else {
             av_log(s, AV_LOG_ERROR,
                    "Filesize %"PRId64" invalid for wav, output file will be broken\n",
                    file_size);
         }
-
-        number_of_samples = av_rescale(wav->maxpts - wav->minpts + wav->last_duration,
-                                       s->streams[0]->codecpar->sample_rate * (int64_t)s->streams[0]->time_base.num,
-                                       s->streams[0]->time_base.den);
+        number_of_samples = av_rescale_q(wav->maxpts - wav->minpts + wav->last_duration,
+                                       s->streams[0]->time_base,
+                                       av_make_q(1, s->streams[0]->codecpar->sample_rate));
 
         if(s->streams[0]->codecpar->codec_tag != 0x01) {
             /* Update num_samps in fact chunk */
@@ -456,7 +447,6 @@ static int wav_write_trailer(AVFormatContext *s)
             } else {
                 avio_wl32(pb, number_of_samples);
                 avio_seek(pb, file_size, SEEK_SET);
-                avio_flush(pb);
             }
         }
 
@@ -480,7 +470,6 @@ static int wav_write_trailer(AVFormatContext *s)
             avio_wl32(pb, -1);
 
             avio_seek(pb, file_size, SEEK_SET);
-            avio_flush(pb);
         }
     }
 
@@ -607,7 +596,6 @@ static int w64_write_trailer(AVFormatContext *s)
         }
 
         avio_seek(pb, file_size, SEEK_SET);
-        avio_flush(pb);
     }
 
     return 0;

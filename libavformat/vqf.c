@@ -132,6 +132,9 @@ static int vqf_read_header(AVFormatContext *s)
 
         switch(chunk_tag){
         case MKTAG('C','O','M','M'):
+            if (len < 12)
+                return AVERROR_INVALIDDATA;
+
             avio_read(s->pb, comm_chunk, 12);
             st->codecpar->channels = AV_RB32(comm_chunk    ) + 1;
             read_bitrate        = AV_RB32(comm_chunk + 4);
@@ -237,8 +240,8 @@ static int vqf_read_packet(AVFormatContext *s, AVPacket *pkt)
     int ret;
     int size = (c->frame_bit_len - c->remaining_bits + 7)>>3;
 
-    if (av_new_packet(pkt, size+2) < 0)
-        return AVERROR(EIO);
+    if ((ret = av_new_packet(pkt, size + 2)) < 0)
+        return ret;
 
     pkt->pos          = avio_tell(s->pb);
     pkt->stream_index = 0;
@@ -249,7 +252,6 @@ static int vqf_read_packet(AVFormatContext *s, AVPacket *pkt)
     ret = avio_read(s->pb, pkt->data+2, size);
 
     if (ret != size) {
-        av_packet_unref(pkt);
         return AVERROR(EIO);
     }
 

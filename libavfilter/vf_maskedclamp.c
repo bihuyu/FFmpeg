@@ -29,7 +29,7 @@
 #include "maskedclamp.h"
 
 #define OFFSET(x) offsetof(MaskedClampContext, x)
-#define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM
+#define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_RUNTIME_PARAM
 
 typedef struct ThreadData {
     AVFrame *b, *o, *m, *d;
@@ -178,12 +178,8 @@ static void maskedclamp##name(const uint8_t *bbsrc, uint8_t *ddst,              
     type *dst = (type *)ddst;                                                     \
                                                                                   \
     for (int x = 0; x < w; x++) {                                                 \
-        if (bsrc[x] < darksrc[x] - undershoot)                                    \
-            dst[x] = darksrc[x] - undershoot;                                     \
-        else if (bsrc[x] > brightsrc[x] + overshoot)                              \
-            dst[x] = brightsrc[x] + overshoot;                                    \
-        else                                                                      \
-            dst[x] = bsrc[x];                                                     \
+        dst[x] = FFMAX(bsrc[x], darksrc[x] - undershoot);                         \
+        dst[x] = FFMIN(dst[x], brightsrc[x] + overshoot);                         \
     }                                                                             \
 }
 
@@ -331,4 +327,5 @@ AVFilter ff_vf_maskedclamp = {
     .outputs       = maskedclamp_outputs,
     .priv_class    = &maskedclamp_class,
     .flags         = AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL | AVFILTER_FLAG_SLICE_THREADS,
+    .process_command = ff_filter_process_command,
 };

@@ -580,7 +580,7 @@ static int shift_data(AVFormatContext *s)
     int n = 0;
     int64_t metadata_size = 0;
     FLVContext *flv = s->priv_data;
-    int64_t pos, pos_end = avio_tell(s->pb);
+    int64_t pos, pos_end = avio_tell(s->pb); /* Save the pre-shift size. */
     uint8_t *buf, *read_buf[2];
     int read_buf_id = 0;
     int read_size[2];
@@ -608,7 +608,6 @@ static int shift_data(AVFormatContext *s)
 
     avio_seek(s->pb, flv->metadata_totalsize_pos, SEEK_SET);
     avio_wb32(s->pb, flv->metadata_totalsize + 11 + metadata_size);
-    avio_seek(s->pb, pos_end, SEEK_SET);
 
     /* Shift the data: the AVIO context of the output can only be used for
      * writing, so we re-open the same output, but for reading. It also avoids
@@ -621,9 +620,7 @@ static int shift_data(AVFormatContext *s)
         goto end;
     }
 
-    /* mark the end of the shift to up to the last data we wrote, and get ready
-     * for writing */
-    pos_end = avio_tell(s->pb);
+    /* Get ready for writing. */
     avio_seek(s->pb, flv->keyframes_info_offset + metadata_size, SEEK_SET);
 
     /* start reading at where the keyframe index information will be placed */
@@ -905,7 +902,7 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
 
     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
             || par->codec_id == AV_CODEC_ID_MPEG4) {
-        int side_size = 0;
+        int side_size;
         uint8_t *side = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_size);
         if (side && side_size > 0 && (side_size != par->extradata_size || memcmp(side, par->extradata, side_size))) {
             ret = ff_alloc_extradata(par, side_size);
